@@ -26,6 +26,7 @@ import { Tightbeam } from '@pooltogether/tightbeam'
 import { withClientState } from 'apollo-link-state'
 import { InMemoryCache } from 'apollo-cache-inmemory'
 import { ApolloClient } from 'apollo-client'
+import { ApolloLink } from 'apollo-link'
 
 export function createApolloClient() {
   const tb = new Tightbeam()
@@ -42,9 +43,14 @@ export function createApolloClient() {
     resolvers: tb.resolvers()
   })
 
+  const link = ApolloLink.from([
+    tb.multicallLink(),
+    stateLink
+  ])
+
   return new ApolloClient({
     cache,
-    link: stateLink
+    link
   })
 }
 
@@ -73,7 +79,7 @@ export default Home
 
 ```
 
-## Step 3: Import ABIs 
+## Step 3: Integrate ABIs 
 
 Create a directory `lib/abis` and import the following abis:
 
@@ -87,13 +93,13 @@ Copy the [PoolTogether Dai Pool ABI on Etherscan](https://etherscan.io/address/0
 
 **Note**: This is the address for the proxy *implementation*, not the proxy itself.
 
-## Step 4: Integrate ABIs
-
 Let's integrate our ABIs into Tightbeam.
 
 Create a file `lib/abiMapping.js`:
 
 ```javascript
+// lib/abiMapping.js
+
 import { AbiMapping } from '@pooltogether/tightbeam'
 
 import Dai from './abis/Dai'
@@ -122,7 +128,7 @@ export function createApolloClient() {
 }
 ```
 
-## Step 5: Display Token Supplies
+## Step 4: Display Token Supplies
 
 Create a new component `components/TokenSupplies.jsx`
 
