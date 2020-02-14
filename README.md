@@ -342,9 +342,7 @@ Now let's add a convenience script to auth in `package.json`:
 ```json
 {
   "scripts": {
-    // ...
     "auth": "graph auth https://api.thegraph.com/deploy/",
-    // ...
   }
 }
 ```
