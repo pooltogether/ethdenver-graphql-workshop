@@ -1,5 +1,9 @@
 # Building a Dapp Using GraphQL
 
+You can literally cut-and-paste most of the code in this tutorial.  A few spots just show the diff.
+
+You can check out the 
+
 # Part 1: Build a simple dApp using Tightbeam
 
 ## Step 1: Setup
@@ -45,11 +49,13 @@ export function createApolloClient() {
     resolvers: tb.resolvers()
   })
 
+  // Hook up the Tightbeam Multicall for speedy call batching
   const link = ApolloLink.from([
     tb.multicallLink(),
     stateLink
   ])
 
+  // Create the Apollo Client
   return new ApolloClient({
     cache,
     link
@@ -190,7 +196,9 @@ const Home = () => (
 
 # ETHDenver: GraphQL Workshop
 
-## Step 5: Setup
+## Step 1: Setup
+
+Move to another directory (i.e. not the front-end dir)
 
 Make sure Graph Protocol is installed
 
@@ -201,7 +209,7 @@ $ yarn global add @graphprotocol/graph-cli
 Init the project
 
 ```bash
-$ graph init --from-contract 0x932773ae4b661029704e731722cf8129e1b32494 asselstine/thrashers thrashers
+$ graph init --from-contract 0x932773ae4b661029704e731722cf8129e1b32494 asselstine/pooltogether-churn pooltogether-churn
 ```
 
 Fix the address so that it will point to the proxy, and set the starting block to the block before the contract was created.
@@ -226,7 +234,7 @@ How many users leave each prize?  How many new users are added for each prize?
 Let's define the schema in `schema.graphql`:
 
 ```graphql
-type PoolPrize {
+type PoolPrize @entity {
   id: ID!
 
   drawId: BigInt!
@@ -245,7 +253,7 @@ Now re-generate the bindings:
 $ yarn codegen
 ```
 
-## Step 7: Process Events
+## Step 2: Process Events
 
 The Graph Protocol can process Ethereum logs, new blocks, or even calls.  We're going to focus on Events.
 
@@ -331,7 +339,7 @@ export function handleWithdrawn(event: Withdrawn): void {
 
 Great!  We're done.
 
-## Step 8: Deploying
+## Step 3: Deploying
 
 To deploy using The Graph hosted infrastructure, you'll need to go create a subgraph using [the explorer](https://thegraph.com/explorer).
 
@@ -359,7 +367,7 @@ Then we deploy
 $ yarn deploy
 ```
 
-## Step 9: Integration
+## Step 4: Integration
 
 Let's jump back to our previous project.
 
