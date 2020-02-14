@@ -2,9 +2,9 @@
 
 You can literally cut-and-paste most of the code in this tutorial.  A few spots just show the diff.
 
-You can check out the 
-
 # Part 1: Build a simple dApp using Tightbeam
+
+View the [complete dapp source on Github](https://github.com/pooltogether/ethdenver-graphql-workshop-app)
 
 ## Step 1: Setup
 
@@ -194,7 +194,7 @@ const Home = () => (
 
 # Part 2: Integrate The Graph Protocol
 
-# ETHDenver: GraphQL Workshop
+View the [complete subgraph source on Github](https://github.com/pooltogether/ethdenver-graphql-workshop-subgraph)
 
 ## Step 1: Setup
 
@@ -283,6 +283,7 @@ With that in mind, let's consider our schema.  We defined a PoolPrize entity tha
 // src/mapping.ts
 
 // ...
+import { PoolPrize } from '../generated/schema'
 
 export function handleOpened(event: Opened): void {
   let prize = new PoolPrize(event.params.drawId.toHexString())
@@ -377,7 +378,7 @@ First we'll update our Apollo Client to point to the Graph Protocol endpoint in 
 // lib/createApolloClient.js
 
 // ...
-import { HttpLink } from 'apollo-link-http'
+import { createHttpLink } from 'apollo-link-http'
 // ...
 
 export function createApolloClient() {
@@ -398,32 +399,26 @@ export function createApolloClient() {
 }
 ```
 
-Now let's add a query for all of the prizes in `lib/queries/prizesQuery.js`:
-
-```javascript
-import gql from 'graphql-tag'
-
-export const prizesQuery = gql`
-  query {
-    poolPrizes {
-      id
-      depositsCount
-      depositsAmount
-      withdrawalsCount
-      withdrawalsAmount
-    }
-  }
-`
-```
-
 And a component to view the data in `components/Prizes.jsx`:
 
 ```javascript
 // components/Prizes.jsx
 
-import { prizesQuery } from '../lib/queries/prizesQuery'
 import { useQuery } from '@apollo/react-hooks'
 import { ethers } from 'ethers'
+import gql from 'graphql-tag'
+
+const prizesQuery = gql`
+  query {
+    poolPrizes {
+      id
+      depositCount
+      depositAmount
+      withdrawalCount
+      withdrawalAmount
+    }
+  }
+`
 
 export function Prizes() {
   const { loading, error, data } = useQuery(prizesQuery)
@@ -432,45 +427,48 @@ export function Prizes() {
   if (error) {
     result = `Error: ${error.message}`
   } else if (data) {
-    console.log(data.poolPrizes)
     result = (
       <table>
-        <tr>
-          <td>
-            Prize Id
-          </td>
-          <td>
-            Deposit Count
-          </td>
-          <td>
-            Withdrawal Count
-          </td>
-          <td>
-            Deposit Amount
-          </td>
-          <td>
-            Withdrawal Amount
-          </td>
-        </tr>
-        {data.poolPrizes.map(poolPrize => (
-          <tr key={poolPrize.id.toString()}>
+        <thead>
+          <tr>
             <td>
-              {poolPrize.id.toString()}
+              Prize Id
             </td>
             <td>
-              {poolPrize.depositCount.toString()}
+              Deposit Count
             </td>
             <td>
-              {poolPrize.withdrawalCount.toString()}
+              Withdrawal Count
             </td>
             <td>
-              {ethers.utils.formatEther(poolPrize.depositAmount, {commify: true, pad: true})}
+              Deposit Amount
             </td>
             <td>
-              {ethers.utils.formatEther(poolPrize.withdrawalAmount, {commify: true, pad: true})}
+              Withdrawal Amount
             </td>
           </tr>
-        ))}
+        </thead>
+        <tbody>
+          {data.poolPrizes.map(poolPrize => (
+            <tr key={poolPrize.id.toString()}>
+              <td>
+                {poolPrize.id.toString()}
+              </td>
+              <td>
+                {poolPrize.depositCount.toString()}
+              </td>
+              <td>
+                {poolPrize.withdrawalCount.toString()}
+              </td>
+              <td>
+                {ethers.utils.formatEther(poolPrize.depositAmount, {commify: true, pad: true})}
+              </td>
+              <td>
+                {ethers.utils.formatEther(poolPrize.withdrawalAmount, {commify: true, pad: true})}
+              </td>
+            </tr>
+          ))}
+        </tbody>
       </table>
     )
   }
