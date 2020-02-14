@@ -212,7 +212,7 @@ Init the project
 $ graph init --from-contract 0x932773ae4b661029704e731722cf8129e1b32494 asselstine/pooltogether-churn pooltogether-churn
 ```
 
-Fix the address so that it will point to the proxy, and set the starting block to the block before the contract was created.
+Edit `subgraph.yaml` and set the address so that it will point to the proxy, and set the starting block to the block before the contract was created.
 
 ```yaml
 source:
