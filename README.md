@@ -223,7 +223,7 @@ source:
 
 The `startBlock` field is very important to make your subgraph speedy.
 
-## Step 6: Define Your Schema
+## Step 2: Define Your Schema
 
 Let's begin by thinking about some questions we'd like answered.
 
@@ -253,7 +253,7 @@ Now re-generate the bindings:
 $ yarn codegen
 ```
 
-## Step 2: Process Events
+## Step 3: Process Events
 
 The Graph Protocol can process Ethereum logs, new blocks, or even calls.  We're going to focus on Events.
 
@@ -340,7 +340,7 @@ export function handleWithdrawn(event: Withdrawn): void {
 
 Great!  We're done.
 
-## Step 3: Deploying
+## Step 4: Deploying
 
 To deploy using The Graph hosted infrastructure, you'll need to go create a subgraph using [the explorer](https://thegraph.com/explorer).
 
@@ -368,7 +368,7 @@ Then we deploy
 $ yarn deploy
 ```
 
-## Step 4: Integration
+## Part 1: Step 5: Integration
 
 Let's jump back to our previous project.
 
