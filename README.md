@@ -1,4 +1,6 @@
-# ETHDenver - Tutorial 1: Tightbeam
+# Building a Dapp Using GraphQL
+
+# Part 1: Build a simple dApp using Tightbeam
 
 ## Step 1: Setup
 
@@ -183,3 +185,310 @@ const Home = () => (
 )
 // ... exports
 ```
+
+# Part 2: Integrate The Graph Protocol
+
+# ETHDenver: GraphQL Workshop
+
+## Step 5: Setup
+
+Make sure Graph Protocol is installed
+
+```bash
+$ yarn global add @graphprotocol/graph-cli
+```
+
+Init the project
+
+```bash
+$ graph init --from-contract 0x932773ae4b661029704e731722cf8129e1b32494 asselstine/thrashers thrashers
+```
+
+Fix the address so that it will point to the proxy, and set the starting block to the block before the contract was created.
+
+```yaml
+source:
+  address: "0x29fe7D60DdF151E5b52e5FAB4f1325da6b2bD958"
+  abi: Contract
+  startBlock: 9133722
+```
+
+The `startBlock` field is very important to make your subgraph speedy.
+
+## Step 6: Define Your Schema
+
+Let's begin by thinking about some questions we'd like answered.
+
+The question of churn:
+
+How many users leave each prize?  How many new users are added for each prize?
+
+Let's define the schema in `schema.graphql`:
+
+```graphql
+type PoolPrize {
+  id: ID!
+
+  drawId: BigInt!
+  
+  depositCount: BigInt!
+  depositAmount: BigInt!
+
+  withdrawalCount: BigInt!
+  withdrawalAmount: BigInt!
+}
+```
+
+Now re-generate the bindings:
+
+```
+$ yarn codegen
+```
+
+## Step 7: Process Events
+
+The Graph Protocol can process Ethereum logs, new blocks, or even calls.  We're going to focus on Events.
+
+Let's start by clearing out the boilerplate in `src/mapping.ts`:
+
+```typescript
+// remove this line
+import { ExampleEntity } from "../generated/schema"
+
+// gut the following function so that it is empty
+export function handleAdminAdded(event: AdminAdded): void {}
+```
+
+I have the benefit of knowing of how PoolTogether works, but I'll give a quick rundown here:
+
+PoolTogether is a prize linked savings account.  That means that a bunch of people deposit into a Pool that generates interest using the deposits and periodically that interest is awarded as a prize to a randomly selected participant.
+
+Each prize goes through two phases to prevent people from gaming the system (i.e. depositing at the last second):
+
+1. The Prize is opened.  People can now deposit to be eligible for this prize.
+2. The Prize is committed.  No new deposits are accepted.  If people withdraw they become ineligible for the prize.
+3. The Prize is awarded to an eligible winner!
+
+With that in mind, let's consider our schema.  We defined a PoolPrize entity that counts it's deposits.  There is an event called `Opened` that is emitted when the prize is opened.  Let's start there in `src/mapping.ts`:
+
+```typescript
+// src/mapping.ts
+
+// ...
+
+export function handleOpened(event: Opened): void {
+  let prize = new PoolPrize(event.params.drawId.toHexString())
+  prize.drawId = event.params.drawId
+  prize.depositCount = BigInt.fromI32(0)
+  prize.depositAmount = BigInt.fromI32(0)
+  prize.withdrawalCount = BigInt.fromI32(0)
+  prize.withdrawalAmount = BigInt.fromI32(0)
+  prize.save()
+}
+
+// ...
+```
+
+Now we need to count users deposits into the open Prize:
+
+```typescript
+// src/mapping.ts
+
+// ...
+
+export function handleDeposited(event: Deposited): void { 
+  let contract = Contract.bind(event.address)
+  let drawId = contract.currentOpenDrawId()
+
+  let prize = PoolPrize.load(drawId.toHexString())
+  prize.depositCount = prize.depositCount.plus(BigInt.fromI32(1))
+  prize.depositAmount = prize.depositAmount.plus(event.params.amount)
+  prize.save()
+}
+
+// ...
+```
+
+Now let's count their withdrawals:
+
+```typescript
+// src/mapping.ts
+
+// ...
+
+export function handleWithdrawn(event: Withdrawn): void {
+  let contract = Contract.bind(event.address)
+  let drawId = contract.currentOpenDrawId()
+
+  let prize = PoolPrize.load(drawId.toHexString())
+  prize.withdrawalCount = prize.withdrawalCount.plus(BigInt.fromI32(1))
+  prize.withdrawalAmount = prize.withdrawalAmount.plus(event.params.amount)
+  prize.save()
+}
+
+// ...
+```
+
+Great!  We're done.
+
+## Step 8: Deploying
+
+To deploy using The Graph hosted infrastructure, you'll need to go create a subgraph using [the explorer](https://thegraph.com/explorer).
+
+Log in and create one.
+
+Now let's add a convenience script to auth in `package.json`:
+
+```json
+{
+  "scripts": {
+    // ...
+    "auth": "graph auth https://api.thegraph.com/deploy/",
+    // ...
+  }
+}
+```
+
+First we authorize ourselves
+
+```bash
+$ yarn auth <your access token>
+```
+
+Then we deploy
+
+```bash
+$ yarn deploy
+```
+
+## Step 9: Integration
+
+Let's jump back to our previous project.
+
+First we'll update our Apollo Client to point to the Graph Protocol endpoint in `lib/createApolloClient.js`:
+
+```javascript
+// lib/createApolloClient.js
+
+// ...
+import { HttpLink } from 'apollo-link-http'
+// ...
+
+export function createApolloClient() {
+  // ...
+
+  const link = ApolloLink.from([
+    tb.multicallLink(),
+    stateLink,
+    createHttpLink({
+      uri: 'https://api.thegraph.com/subgraphs/name/asselstine/pooltogether-churn',
+
+      // this is a hack because we're using Next.js
+      fetch: (typeof window !== 'undefined') ? window.fetch : () => {}
+    })
+  ])
+
+  // ...
+}
+```
+
+Now let's add a query for all of the prizes in `lib/queries/prizesQuery.js`:
+
+```javascript
+import gql from 'graphql-tag'
+
+export const prizesQuery = gql`
+  query {
+    poolPrizes {
+      id
+      depositsCount
+      depositsAmount
+      withdrawalsCount
+      withdrawalsAmount
+    }
+  }
+`
+```
+
+And a component to view the data in `components/Prizes.jsx`:
+
+```javascript
+// components/Prizes.jsx
+
+import { prizesQuery } from '../lib/queries/prizesQuery'
+import { useQuery } from '@apollo/react-hooks'
+import { ethers } from 'ethers'
+
+export function Prizes() {
+  const { loading, error, data } = useQuery(prizesQuery)
+
+  let result = 'Loading...'
+  if (error) {
+    result = `Error: ${error.message}`
+  } else if (data) {
+    console.log(data.poolPrizes)
+    result = (
+      <table>
+        <tr>
+          <td>
+            Prize Id
+          </td>
+          <td>
+            Deposit Count
+          </td>
+          <td>
+            Withdrawal Count
+          </td>
+          <td>
+            Deposit Amount
+          </td>
+          <td>
+            Withdrawal Amount
+          </td>
+        </tr>
+        {data.poolPrizes.map(poolPrize => (
+          <tr key={poolPrize.id.toString()}>
+            <td>
+              {poolPrize.id.toString()}
+            </td>
+            <td>
+              {poolPrize.depositCount.toString()}
+            </td>
+            <td>
+              {poolPrize.withdrawalCount.toString()}
+            </td>
+            <td>
+              {ethers.utils.formatEther(poolPrize.depositAmount, {commify: true, pad: true})}
+            </td>
+            <td>
+              {ethers.utils.formatEther(poolPrize.withdrawalAmount, {commify: true, pad: true})}
+            </td>
+          </tr>
+        ))}
+      </table>
+    )
+  }
+
+  return result
+}
+```
+
+...and add the component to the `pages/index.js`:
+
+```javascript
+// ...
+import { Prizes } from '../components/Prizes'
+// ...
+
+const Home = () => (
+  <div>
+    <ApolloProvider client={apolloClient}>
+      Ready for web3!
+      <TokenSupplies />
+      <Prizes />
+    </ApolloProvider>
+  </div>
+)
+```
+
+And we're done!
